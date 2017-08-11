@@ -1,0 +1,508 @@
+---
+title: "Presidential Campaign Donations"
+output:
+  html_document: default
+  html_notebook: default
+---
+
+I will be looking at presidential campaign donations for the state of Ohio for the 2016 presidential election.  This was the most contentious election that I can remember, and I am interested in finding out more about where donations from within my state went, and if they compare to the overall election.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(knitr)
+library(scales)
+library(dplyr)
+library(ggthemes)
+```
+
+```{r, message=FALSE, warning=FALSE, include=FALSE}
+ohio <- read.csv('P00000001-OH.csv', sep = ',')
+```
+
+
+Initially I had an issue trying to import the file from CSV.  I received an error stating there could not be duplicate row.names.  Found a post on OverStack.com where someone else had a similar issue.  One of the suggestions for fixing it was to check the original CSV file to see if a comma had been ommitted from the end of the header row.  Checked my file, and found this was the case.  Added the comma and reran the command to enter the data.
+https://stackoverflow.com/questions/8854046/duplicate-row-names-are-not-allowed-error-in-r-programming
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+dim(ohio)
+```
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+str(ohio)
+```
+```{r, include=FALSE}
+ohio$contb_receipt_dt <- as.Date(ohio$contb_receipt_dt, format = '%d-%b-%y')
+#manually formatted the date column as dates so graps can be made with those dates
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+summary(ohio)
+```
+
+Now that I have a sense of the overall data, I want to see more specifics about a few of the variables.
+
+#Univariate Plots
+
+###Candidates
+
+Let's start by looking at who was getting these donations.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+summary(ohio$cand_nm)
+```
+
+24 candidates received some donations for their presidential campaigns from individuals in the state of Ohio.  4 of those had 10 or less donations, and another 6 had 100 donations or less.  These numbers pale in comparison to the 71,000 that Hillary Clinton received.  It's also interesting that Bernie Sanders had more donations than Donald Trump, even though he did not make it past the primaries.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+qplot(cand_nm, data = ohio)+
+  coord_flip()
+#used coord_flip to make it easier to read the labels on the graph
+```
+```{r, include=FALSE}
+top_cand <- c('Trump, Donald J.', 'Sanders, Bernard', 'Rubio, Marco', 'Kasich, John R.',
+              "Cruz, Rafael Edward \'Ted'", 'Clinton, Hillary Rodham',
+              'Carson, Benjamin S.')
+#Created a variable to include the names of all candidates that received more than
+#2000 donations, to make comparisons easier to visualize.
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+qplot(cand_nm, data = ohio)+
+  xlim(x = top_cand)+
+  coord_flip()
+```
+
+Narrowing our list of candidates down to just the top 7 makes it much easier to see the differences in the contributions they received.
+
+###City
+
+Now let's look at where the donations came from.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+summary(ohio$contbr_city, maxsum = 25)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+qplot(contbr_city, data = ohio)+
+  coord_flip()
+```
+
+Looking at all of the cities in the state is nearly impossible in a graph like this, as there are simply too many cities.  Let's take a closer look at the cities that had over 2000 donations.
+
+```{r, include=FALSE}
+top_city <- c('COLUMBUS', 'CINCINNATI', 'CLEVELAND','DAYTON', 'TOLEDO',
+              'AKRON', 'WESTERVILLE', 'DUBLIN')
+#Created a variable to use for easy analysis in graphs, as there are simply too many
+#cities in this data set to include all of them in any readable graph.  I chose the
+#top 8 cities, as they all had over 2000 donations.  I put the cities in order by 
+#number of donations as well to make visual comparisons easier.
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+qplot(contbr_city, data = ohio)+
+  xlim(x = top_city)+
+  coord_flip()
+```
+
+As expected, the three largest cities in the state lead the way.  However, I am surprised to see Cleveland so far behind the other two in terms of number of donations.  As of the 2010 census, Cleveland was the second largest city in the state behind Columbus.  This could be something to look into further during later investigations.
+
+###Occupations
+
+Next let's take a look at the occupations of our contributors.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+summary(ohio$contbr_occupation, maxsum = 25)
+```
+
+There is a wide variety when it comes to the occupations listed, and there appears to be quite a bit of overlap.  Looking at just the top 25 categories, we can see one entry for RN's and another for Registered Nurses.  There are also separate entries for Owner and Business Owner.  The top two categories are the most surprising to me though.  I'm not surprised to see a lot of donations from retired individuals, but the amount of donations they gave is surprising to me.  I'm also very surprised by the over 10,000 donations from people that are not employed.  Those two numbers will be worth looking into.
+
+###Contribution Size
+
+Now that we have a better idea of where the donations are coming from, let's take a look at the size of the donations.
+
+```{r, echo=FALSE}
+summary(ohio$contb_receipt_amt)
+```
+
+The bulk of the donations range from \$16 up to \$80.  I'm a little surprised to see a donation of -\$10,800 as well.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+summary(ohio$contb_receipt_amt < 0)
+```
+
+It appears there are quite a few negative contributions, but they account for less than 2% of the total donations.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(contb_receipt_amt), data = ohio)+
+  geom_histogram(binwidth = 1)+
+  coord_cartesian(xlim = c(0, 80), expand = FALSE)
+```
+
+This data shows the most common donations are \$25 and \$50
+
+Now let's take a look at those negative donations.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(contb_receipt_amt), data = ohio)+
+  geom_histogram(binwidth = 1)+
+  coord_cartesian(xlim = c(-100, 0), ylim = c(0, 250), expand = FALSE)
+```
+
+The bulk of the negative donations were for just a few dollars, but there do appear to be quite a few \$25, \$50, and \$100 as well.
+
+What about those large donations?  Let's take a look at that top 25% of donations.
+```{r, echo=FALSE}
+summary(subset(ohio$contb_receipt_amt, ohio$contb_receipt_amt > 80))
+```
+
+```{r}
+ggplot(aes(contb_receipt_amt), data = ohio)+
+  geom_histogram(binwidth = 1)+
+  coord_cartesian(xlim = c(80, 1000), ylim = c(0, 17500), expand = FALSE)
+```
+
+I focused my graph on donations between \$80 and \$1000 as it seems there are a very limited number of donations above that level.  These higher donations show a similar pattern with large numbers of donations at very specific dollar amounts.
+
+```{r, echo=FALSE}
+summary(subset(ohio$contb_receipt_amt, ohio$contb_receipt_amt > 1000))
+```
+
+
+###Dates
+
+Let's take a look at the dates donations were made and see how those line up with the date of Ohio's primary and the general election.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(contb_receipt_dt), data = ohio)+
+  geom_histogram(binwidth = 1)
+```
+
+There are some donations to the campaigns as early as 2014.  There are also a few peaks in donations throughout 2016, with a sharp dropoff towards the end of the year.  Let's zoom in and focus on just the donations in 2016.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(contb_receipt_dt), data = ohio)+
+  geom_histogram()+
+  scale_x_date(date_breaks = "1 month", 
+               date_minor_breaks = "1 week", 
+               date_labels = "%b",
+               limits = as.Date(c('2016-01-01', '2016-12-31')))
+```
+
+Looking at this breakdown we can see three times where there were bumps in donations.  The first in March coincides with the state primary.  The second in July matches up with the major party conventions.  The third, and largest bump, is just before the election, with donations dropping off almost completely after the election took place.
+
+#Univariate Analysis
+
+So far I've found a few interesting points, and a lot of data that makes sense given the nature of political campaigns.  There were over 160,000 campaign donations that are included in this data set.
+
+###Main Factors
+
+The main factors in this data that I will be focusing on are the candidates and the amounts they received.  I am looking to see if these trends line up with the overall vote in the general and primary elections in the state.
+
+###Other Factors
+
+I am also hoping to look at the city where donors live and their occupations to see if there are trends in political leanings based on career and location.
+
+#Bivariate and Multivariate Plots
+
+###Contribution Amounts by Candidate
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(contb_receipt_dt, contb_receipt_amt), 
+       data = subset(ohio, cand_nm %in% top_cand))+
+  geom_point(aes(color = cand_nm))+
+  scale_color_brewer(palette = 'Dark2')
+```
+
+Ted Cruz seems to have been the early favorite in Ohio, getting donations as far back as 2014.  Let's focus our graph to only look at donations made during the 2016 calendar year, as this is the time period when the campaigns would have been in full swing.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(contb_receipt_dt, contb_receipt_amt), 
+       data = subset(ohio, cand_nm %in% top_cand))+
+  geom_point(aes(color = cand_nm))+
+  scale_color_brewer(palette = 'Dark2')+
+  scale_x_date(date_breaks = "1 month", 
+               date_minor_breaks = "1 week", 
+               date_labels = "%b",
+               limits = as.Date(c('2016-01-01', '2016-12-31')))
+```
+
+With the exception of a few outliers, most of the contributions appear to fall within a very specific range.  Limiting the max amount of donations we are looking at may help give us some more information here.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(contb_receipt_dt, contb_receipt_amt), 
+       data = subset(ohio, cand_nm %in% top_cand))+
+  geom_point(aes(color = cand_nm))+
+  scale_color_brewer(palette = 'Dark2')+
+  scale_x_date(date_breaks = "1 month", 
+               date_minor_breaks = "1 week", 
+               date_labels = "%b",
+               limits = as.Date(c('2016-01-01', '2016-12-31')))+
+  coord_cartesian(ylim = c(-2600, 2600))
+```
+
+There are definite bands of donations at specific dollar amounts.  It's interesting to see how the support of individual candidates dropped off at specific times.  It's also surprising to see the amount of negative donations, which most likely are refunds, on specific days. More research would need to be done explaining what these negative donations are, and why they are given.  Now let's look one more time at this data and focus just on the positive donations under \$500.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(contb_receipt_dt, contb_receipt_amt), 
+       data = subset(ohio, cand_nm %in% top_cand))+
+  geom_point(aes(color = cand_nm), alpha = 0.25)+
+  scale_color_brewer(palette = 'Dark2')+
+  scale_x_date(date_breaks = "1 month", 
+               date_minor_breaks = "1 week", 
+               date_labels = "%b",
+               limits = as.Date(c('2016-01-01', '2016-12-31')))+
+  coord_cartesian(ylim = c(-0, 500, expand = FALSE))
+```
+
+Adjusting the alpha with this data, let's us see that the trends for donations at even amounts continues in the smaller donations as well as the larger donations.  Now that we have a feel for the overall contributions, let's examine the mean donation size by day for each candidate.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(contb_receipt_dt, contb_receipt_amt), 
+       data = subset(ohio, cand_nm %in% top_cand))+
+  geom_line(aes(color = cand_nm), stat = 'summary', fun.y = 'median')+
+  scale_x_date(date_breaks = "1 month", 
+               date_minor_breaks = "1 week", 
+               date_labels = "%b",
+               limits = as.Date(c('2016-01-01', '2016-12-31')))
+```
+
+Looking at median contribution amount for each candidate over the year, gives us a lot of variation, and some wide swings from positive to negative, that line up with dates we noticed in our previous graphs.  Narrowing our focus to the last few months of the year, will help focus the data on the end of the race when it was down to just two major candidates.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(contb_receipt_dt, contb_receipt_amt), 
+       data = subset(ohio, cand_nm %in% top_cand))+
+  geom_line(aes(color = cand_nm), stat = 'summary', fun.y = 'median')+
+  scale_x_date(date_breaks = "1 month", 
+               date_minor_breaks = "1 week", 
+               date_labels = "%b",
+               limits = as.Date(c('2016-09-01', '2016-12-31')))
+```
+
+Looking at the time period from September 1 through December 31 let's us focus on Clinton and Trump.  During this stretch, Hillary's median contribution amount was much lower than Donald's.  It's also surprising to see how many negative contributions occurred at the end of November and into December.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(cand_nm, contb_receipt_amt), data = ohio)+
+  geom_boxplot()+
+  xlim(x = top_cand)+
+  coord_flip()
+```
+
+There is a lot going on in this plot.  John Kasich seems to be be the winner with individual contributions, collecting 4 that were each over \$15,000.  Ted Cruz issued the biggest refund, which appears to match the biggest contribution he collected.
+
+Let's narrow our graph down to focus on the more average donations.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(cand_nm, contb_receipt_amt), data = ohio)+
+  geom_boxplot()+
+  xlim(x = top_cand)+
+  ylim(y = c(-250, 250))+
+  coord_flip()
+```
+
+Now that we have a better view of the actual boxes, we can see just how big an impact those big donations had on John Kasich's overall numbers.  It's also interesting to see how similar the quantiles appear for Hillary Clinton and Bernie Sanders.
+
+```{r}
+by_cand <- subset(ohio, cand_nm %in% top_cand) %>% group_by(cand_nm)
+#used dpylr to create a data frame grouped by candidate and limiting the results to
+#just the top 7 candidates
+
+summarise(by_cand, mean(contb_receipt_amt))
+```
+
+
+###Total Money Per Candidate
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(cand_nm, contb_receipt_amt), data = by_cand)+
+  geom_bar(stat = 'identity')+
+  coord_flip()
+```
+
+This shows the total amount of money received in contributions.  Hillary Clinton is the clear winner here, which isn't too surprising since she had more than double the number of contributions of any of the other candidates. However, Bernie Sanders had the second highest number of contributions, but is 4th in terms of total money.  This shows that Bernie probably had many more low dollar donations compared to the other candidates.  
+
+These overall contribution numbers match up very well with the Ohio Primary results, since Clinton and Kasich won their respective primaries here.  However, they do no match up with the general election vote, since Trump won the state, and was a distant third in terms of money collected in the state.
+
+It's also interesting to see that John Kasich outearned Donald Trump in spite of the fact that he was out of the race shortly after the Ohio primary.  This may have something to do with him running a national campaign but being the governor of Ohio.  It would be interesting to see how his total campaign contributions compare to his Ohio numbers.
+
+###Contributions by City
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(contbr_city, contb_receipt_amt), 
+       data = subset(ohio, contbr_city %in% top_city))+
+  geom_bar(stat = 'identity')+
+  coord_flip()
+```
+
+Earlier we saw that Columbus was clearly ahead of the other cities in regards to the number of donations given, however, when we look at the total amount of money being donated, Cincinnati is the clear winner.
+
+###Contribution Amount Per Candidate by City
+
+Now let's take a look at how the contributions break down by city for each of our top candidates.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(cand_nm, contb_receipt_amt), 
+       data = subset(ohio, contbr_city %in% top_city))+
+  geom_bar(stat = 'identity')+
+  xlim(x = top_cand)+
+  coord_flip()+
+  facet_wrap(~contbr_city)
+```
+
+This shows a very interesting trend in the data, as the big cities tend to give more money to Hillary Clinton, who is a democrat, while the affluent suburbs, like Dublin and Westerville gave more money to John Kasich and Donald Trump who are republicans.
+
+To look into this a little more in depth, I am going to look specifically at Columbus and it's suburbs to see if this trend was coincidental or true across more than just these two cities.
+
+```{r, message=FALSE, warning=FALSE, include=FALSE}
+city_burbs <- c('COLUMBUS', 'WESTERVILLE', 'DUBLIN', 'POWELL', 'WORTHINGTON',
+                'HILLIARD', 'DELAWARE', 'NEW ALBANY', 'PICKERINGTON', 'GAHANNA',
+                'REYNOLDSBURG')
+#Created a list containing Columbus and it's suburbs for ease of comparison
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(cand_nm, contb_receipt_amt), 
+       data = subset(ohio, contbr_city %in% city_burbs))+
+  geom_bar(stat = 'identity')+
+  xlim(x = top_cand)+
+  coord_flip()+
+  facet_wrap(~contbr_city)
+```
+
+The trend does appear to hold true when taking the majority of suburbs into account, at least for this one major metropolitan area.  Only a handful of the suburbs show more money going to the two democratic candidates, while the majority show more money going to republican candidates.
+
+###Contribution Amount per Candidate by Occupation
+```{r, include=FALSE}
+occupation <- c('RETIRED', 'NOT EMPLOYED', 'ATTORNEY', 'HOMEMAKER',
+                'PHYSICIAN', 'TEACHER')
+
+top_occ <- c('RETIRED', 'NOT EMPLOYED')
+
+#created two lists for occupations, one with the top 6, and a second with just the
+#top two
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(cand_nm, contb_receipt_amt), 
+       data = subset(ohio, contbr_occupation %in% occupation))+
+  geom_bar(stat = 'identity')+
+  xlim(x = top_cand)+
+  coord_flip()+
+  facet_wrap(~contbr_occupation)
+```
+
+The donations for our top 6 occupations show some interesting trends.  Retired individuals seem to be pretty mixed.  Homemakers seem to have supported the republican candidates more, while the professional occupations supported Hillary Clinton and the unemployed supported Bernie Sanders.  The results from the retired and unemployed individuals are the most surprising to me, so let's narrow our focus on those two categories.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(cand_nm, contb_receipt_amt), 
+       data = subset(ohio, contbr_occupation %in% top_occ))+
+  geom_bar(stat = 'identity')+
+  xlim(x = top_cand)+
+  coord_flip()+
+  facet_wrap(~contbr_occupation)
+```
+
+The retired individuals contributed to each of the top 7 candidates in the state.  The candidate they supported financially the least is the same candidate that received the bulk of the financial support from the unemployed contributors. This is likely due to the political leanings of Bernie Sanders.  The top two candidates the retired individuals contributed to were Trump and Clinton.  This makes me wonder if the bulk of these contributions were made before or after the primaries, as these are the two that ran against each other in the general election.
+
+###Contributions by Date for Retired Individuals
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(contb_receipt_dt), data = subset(by_cand, contbr_occupation == 'RETIRED'))+
+  geom_histogram(aes(color = cand_nm, fill = cand_nm))+
+  scale_x_date(date_breaks = "1 month", 
+               date_minor_breaks = "1 week", 
+               date_labels = "%b",
+               limits = as.Date(c('2016-01-01', '2016-12-31')))
+```
+
+As I suspected, the bulk of the donations for our retired individuals came after the primaries had concluded.  Initially most of the contributions after those primaries appear to have gone to Trump, but by late August, had switched to Clinton.
+
+Just for sake of comparison, let's look at when the unemployed individuals made their donations.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(contb_receipt_dt), 
+       data = subset(ohio, contbr_occupation == 'NOT EMPLOYED'))+
+  geom_histogram(aes(color = cand_nm, fill = cand_nm))+
+  scale_x_date(date_breaks = "1 month", 
+               date_minor_breaks = "1 week", 
+               date_labels = "%b",
+               limits = as.Date(c('2016-01-01', '2016-12-31')))
+```
+
+This data for the unemployed individuals makes sense based on who they supported.  Bernie Sanders lost the primary, so their financial support appears to have really dropped off after he was officially out of the race.
+
+#Bivariate Analysis
+
+We have explored trends in campaign donations looking at a variety of factors that may help explain the general election results in Ohio from the 2016 presidential election. 
+
+###Main Factors
+
+The total amount of money contributed to these candidates lines up exactly with the primary election for the state.  Kasich was the top money making republican candidate, and won the republican primary.  Clinton was the top money making democrat, and won the democratic primary.  However, Trump won the general election in the state, and did not bring in the most amount of money.  Looking at the timing of contributions though, it appears that Trump gained ground on Clinton at the very end of the election season, which would line up with his victory in the state.
+
+###Other Factors
+
+Looking at city and occupations provided some interesting insight into the election as well.  There appear to be definite trends in political leanings for large cities and suburbs.  The early support for Sanders from the unemployed individuals may have also played a large part in the election if those individuals did not have motivation to go out and vote since their candidate was not in the running.
+
+#Final Plots
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(contb_receipt_dt, contb_receipt_amt), 
+       data = by_cand)+
+  geom_line(aes(color = cand_nm), stat = 'summary', fun.y = 'median')+
+  scale_x_date(date_breaks = "1 month", 
+               date_minor_breaks = "1 week", 
+               date_labels = "%b %Y",
+               limits = as.Date(c('2016-09-01', '2016-12-31')))+
+  labs(x = 'Date of Contribution',
+       y = 'Contribution Amount  ($)',
+       title = 'Median Contribution Amount by Date',
+       color = 'Candidate')+
+  theme(plot.title = element_text(hjust = 0.5))+
+  theme(panel.background = element_rect(color = 'black'))+
+  scale_color_brewer(palette = 'Dark2')
+```
+
+This graph is looking at the median contribution amount per day for the last few months of the election, and the month immediately following the election.  This shows a trend where Trump supporters appear to be giving larger contributions than Clinton supporters.  This shows that Trump supporters were likely more enthusiastic about their candidate and more likely to go out and vote on election day.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(contbr_city, contb_receipt_amt), 
+       data = subset(ohio, contbr_city %in% top_city))+
+  geom_bar(stat = 'identity', fill = 'olive drab')+
+  coord_cartesian(ylim = c(0, 3000000), expand = FALSE)+
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))+
+  theme(axis.text.y = element_text(angle = 30, vjust = 1))+
+  labs(title = 'Total Contributions by City',
+       x = 'City',
+       y = 'Total Contributions  ($)')+
+  scale_y_continuous(labels = comma)+
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+This graph shows the overwhelming majority of contributions come from the three largest cities in the state.  When compared with where these donations were going, it helps explain Hillary Clinton's large lead in total money in the state.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(contb_receipt_dt), 
+       data = subset(ohio, contbr_occupation == 'NOT EMPLOYED'))+
+  geom_histogram(aes(color = cand_nm, fill = cand_nm,
+                     label = 'Candidate'))+
+  scale_x_date(date_breaks = "1 month", 
+               date_minor_breaks = "1 week", 
+               date_labels = "%b %y",
+               limits = as.Date(c('2016-01-01', '2016-12-31')))+
+  labs(title = 'Contribution Count by Date and Candidate for Unemployed Donors',
+       x = 'Date  (Month Year)',
+       y = 'Contribution Count')+
+  scale_fill_brewer(palette = 'RdYlBu')+
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+```
+
+The unemployed category was the second largest group of donors, based on number of donations.  This graph shows us when those donations were made, and who they were made to.  Early in the year, there were high numbers of contributions, and most were being made to Sanders.  After early June, those numbers dropped significantly.  While they did rebound slightly, showing increased support for Clinton, they did not reach nearly the levels that Sanders had early in the year.  The lack of support for the eventual democratic candidate may signal a lack of enthusiasm that could have helped contribute to lower voter turnout.
+
+#Summary
+
+The 2016 Presidential Election will likely remain one of the most surprising results in any presidential election for quite some time.  At the beginning of election day, Clinton was getting ready to give her acceptance speech, and by the end of the day Trump had shocked the world.  Looking at the data for campaign contributions from the state of Ohio show some trends that match the national picture, but also may help explain the eventual vote for Ohio going to Trump.  By the end of the election Trump was getting larger donations on average compared to Clinton, this could indicate a more enthusiastic voting base, which usually results in higher voter turnout.  The democratic primary also seems to have somewhat fractured the democratic base in the state.  The donations coming in from unemployed individuals went to Sanders at an extremely high rate, and once he was out of the race, those donations dropped considerably.  This could indicate that those voters who supported Sanders were not necessarily excited about Clinton being the nominee and that lack of excitement could have helped contribute to lower voter turnout for democrats.
+
+Again, this was the the most surprising election of my lifetime, and likely will stay that way.  Nobody expected the outcome, except maybe Trump himself.  These factors we have examined do not show direct correlations that could explain the election results, but by focusing on the end of the race, they may help show the varying levels of voter engagement that could have been enough to influence the eventual outcome in the state.
+
+#Resources
+https://groups.google.com/forum/#!topic/ggplot2/AfTB5ijyUIE, quick reference sheet for polishing graphs and charts using ggplot2
+
+https://stackoverflow.com/questions/8854046/duplicate-row-names-are-not-allowed-error-in-r-programming, forum post covering the issue with duplicate row names I initially observed when attempting to read in my CSV file.
